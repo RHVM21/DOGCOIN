@@ -118,4 +118,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+
+    // Sending TonConnect proof data to the server
+    connector.onStatusChange(async (walletInfo) => {
+        if (walletInfo.connectItems && walletInfo.connectItems.tonProof) {
+            const { payload, signature } = walletInfo.connectItems.tonProof.proof;
+
+            // Send TonConnect proof data and Telegram initData to the server
+            fetch('/api/verify-tonconnect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ initData, payload, signature })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.valid) {
+                    userInfo.innerText = `Пользователь: ${walletInfo.account.address}`;
+                    console.log('Server verification successful');
+                } else {
+                    userInfo.innerText = 'Ошибка: серверная проверка не прошла';
+                    console.log('Server verification failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    });
 });

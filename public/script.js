@@ -66,3 +66,56 @@ if (Telegram.WebApp.initDataUnsafe.user) {
 } else {
     console.log('Информация о пользователе не доступна');
 }
+
+// TonConnect Integration
+document.addEventListener('DOMContentLoaded', async () => {
+    const nacl = await import('https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js');
+    const TonConnect = window.TonConnectSDK.TonConnect;
+    const connector = new TonConnect({ manifestUrl: 'https://ratingers.pythonanywhere.com/ratelance/tonconnect-manifest.json' });
+
+    // Elements
+    const connectBtn = document.getElementById('connect-btn');
+    
+    // Event listener for TonConnect button
+    connectBtn.addEventListener('click', async () => {
+        const walletsList = await connector.getWallets();
+
+        for (let wallet of walletsList) {
+            if (wallet.embedded || wallet.injected) {
+                connector.connect({ jsBridgeKey: wallet.jsBridgeKey }, { tonProof: 'doc-example-<BACKEND_AUTH_ID>' });
+            } else if (wallet.bridgeUrl) {
+                window.open(connector.connect({ universalLink: wallet.universalLink, bridgeUrl: wallet.bridgeUrl }, { tonProof: 'doc-example-<BACKEND_AUTH_ID>' }), '_blank');
+            }
+        }
+    });
+
+    // Verify signature function
+    function verifySignature(walletInfo, signature, payload) {
+        const publicKey = getPublicKeyFromWalletStateInit(walletInfo.account.walletStateInit);
+        const message = new TextEncoder().encode(payload);
+        const decodedSignature = nacl.util.decodeBase64(signature);
+        return nacl.sign.detached.verify(message, decodedSignature, publicKey);
+    }
+
+    function getPublicKeyFromWalletStateInit(stateInit) {
+        const stateInitCell = TonConnect.boc.Cell.one_from_boc(stateInit);
+        const dataCell = stateInitCell.refs[1];
+        const publicKey = dataCell.bits.subbuffer(8, 32); // skip 8 bytes and take next 32 bytes
+        return publicKey;
+    }
+
+    // Event listener for TonConnect status change
+    connector.onStatusChange(async (walletInfo) => {
+        if (walletInfo.connectItems && walletInfo.connectItems.tonProof) {
+            const { payload, signature } = walletInfo.connectItems.tonProof.proof;
+            const isValid = verifySignature(walletInfo, signature, payload);
+            if (isValid) {
+                userInfo.innerText = `Пользователь: ${walletInfo.account.address}`;
+                console.log('Signature is valid');
+            } else {
+                userInfo.innerText = 'Ошибка: неверная подпись';
+                console.log('Signature is invalid');
+            }
+        }
+    });
+});

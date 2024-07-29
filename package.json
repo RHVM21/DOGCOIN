@@ -1,0 +1,11 @@
+{
+    "name": "my-telegram-app",
+    "version": "1.0.0",
+    "scripts": {
+      "start": "vercel dev"
+    },
+    "dependencies": {
+      "express": "^4.17.1",
+      "crypto": "^1.0.1"
+    }
+  }
